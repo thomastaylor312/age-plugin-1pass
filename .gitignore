@@ -1,0 +1,4 @@
+/age-plugin-1pass
+/dist/
+*.test
+*.out
