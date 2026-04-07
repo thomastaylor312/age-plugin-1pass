@@ -1,4 +1,4 @@
-# age-plugin-1pass
+# 1Password Age Plugin
 
 An [age](https://age-encryption.org) identity plugin that stores private keys
 in [1Password](https://1password.com) and resolves them at decrypt time via
@@ -19,6 +19,8 @@ machine signed into that 1Password account.
 
 ## Install
 
+<!-- TODO: publish a release -->
+
 ```bash
 CGO_ENABLED=1 go install github.com/thomastaylor312/age-plugin-1pass@latest
 ```
@@ -32,7 +34,7 @@ discovers plugins by looking for a binary named `age-plugin-1pass`.
 
 ```bash
 age-plugin-1pass generate \
-    --account my.1password.com \
+    --account 'My Personal Account' \
     --vault Personal \
     --name my-age-key \
     -o ~/.config/age/1pass.key
@@ -48,11 +50,11 @@ or share it.
 
 ```bash
 age-plugin-1pass generate \
-    --account my.1password.com \
+    --account 'My Personal Account' \
     --vault Personal \
-    --name my-age--pq-key \
-    --pq \
-    -o ~/.config/age/1pass--pq.key
+    --name my-age-pq-key \
+    -pq \
+    -o ~/.config/age/1pass-pq.key
 ```
 
 ### Encrypt and decrypt
@@ -79,18 +81,36 @@ age -d -i ~/.config/age/1pass.key hello.age
 
 | Flag | Required | Description |
 |------|----------|-------------|
-| `--account <id-or-name>` | yes | 1Password account UUID or sidebar name. See "Why is `--account` required?" below. |
+| `--account <name>` | yes | 1Password account **shorthand name** as shown in the desktop app's top-left account picker (e.g. `my.1password.com` or your sign-in email). See "Picking the right `--account` value" below. |
 | `--vault <name-or-id>` | yes | Destination vault; title or UUID. |
 | `--name <item-name>` | no | Item title. Prompted interactively if omitted. |
 | `-o, --output <path>` | no | Write to a file (refuses to overwrite) instead of stdout. |
-| `--pq` | no | Generate a post-quantum ML-KEM-768 + X25519 hybrid key. |
+| `-pq` | no | Generate a post-quantum ML-KEM-768 + X25519 hybrid key. |
+
+### Picking the right `--account` value
+
+Pass the **account name** as it appears in the 1Password desktop app's
+top-left account picker — typically your sign-in email or the account
+shorthand like `my.1password.com`. This is what the upstream
+`onepassword-sdk-go` example uses.
+
+> **Heads up:** the 1Password Go SDK godoc says
+> *"Set to your 1Password account name as shown at the top left sidebar of
+> the app, **or your account UUID**"*, but in practice passing the
+> 26-character base32 account ID that `op account list` reports under the
+> `ID` column fails with `Account not found`. Use the shorthand/email,
+> not that ID.
+
+If you have the [`op` CLI](https://developer.1password.com/docs/cli/)
+installed, `op account list` shows usable values under the `URL`,
+`SHORTHAND`, and `EMAIL` columns — any of those should work.
 
 ### Why is `--account` required?
 
 The 1Password Go SDK's desktop-app integration needs a specific account to
 bind the client to, and the SDK exposes no API to list or default accounts.
 A future release may shell out to `op account list` to auto-select when a
-single account is signed in — tracked as a TODO in `internal/cmd/generate.go`.
+single account is signed in.
 
 ## Identity file format
 
@@ -121,6 +141,11 @@ account identifier and the 1Password secret reference, never the key itself.
 **`desktop app connection channel is closed`** — the 1Password desktop app
 isn't running, isn't signed into the requested account, or *Integrate with
 other apps* is disabled. Open *Settings → Developer* and toggle it on.
+
+**`Account not found`** — `--account` was passed an account ID (the 26-char
+base32 string from `op account list`'s `ID` column) instead of the account
+shorthand/email shown in the desktop app sidebar. See *Picking the right
+`--account` value* above.
 
 **`vault "X" not found in account "Y"`** — the desktop app is signed into a
 different account than `--account`, or the vault title is misspelled. Use
