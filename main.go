@@ -39,8 +39,7 @@ func runCLI(args []string) int {
 
 	switch args[0] {
 	case "generate":
-		fmt.Fprintln(os.Stderr, "age-plugin-1pass: generate not yet implemented")
-		return 1
+		return cmd.RunGenerate(args[1:], version)
 	case "-h", "--help", "help":
 		usage()
 		return 0
