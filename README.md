@@ -50,9 +50,9 @@ or share it.
 age-plugin-1pass generate \
     --account my.1password.com \
     --vault Personal \
-    --name my-age-pq-key \
-    -pq \
-    -o ~/.config/age/1pass-pq.key
+    --name my-age--pq-key \
+    --pq \
+    -o ~/.config/age/1pass--pq.key
 ```
 
 ### Encrypt and decrypt
@@ -83,7 +83,7 @@ age -d -i ~/.config/age/1pass.key hello.age
 | `--vault <name-or-id>` | yes | Destination vault; title or UUID. |
 | `--name <item-name>` | no | Item title. Prompted interactively if omitted. |
 | `-o, --output <path>` | no | Write to a file (refuses to overwrite) instead of stdout. |
-| `-pq` | no | Generate a post-quantum ML-KEM-768 + X25519 hybrid key. |
+| `--pq` | no | Generate a post-quantum ML-KEM-768 + X25519 hybrid key. |
 
 ### Why is `--account` required?
 

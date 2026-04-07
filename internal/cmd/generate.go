@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -13,6 +12,7 @@ import (
 
 	"filippo.io/age"
 	ageplugin "filippo.io/age/plugin"
+	"github.com/spf13/pflag"
 
 	"github.com/thomastaylor312/age-plugin-1pass/internal/identity"
 	"github.com/thomastaylor312/age-plugin-1pass/internal/onepass"
@@ -30,7 +30,7 @@ type GenerateFlags struct {
 
 // RunGenerate parses `generate` arguments and executes the subcommand.
 func RunGenerate(args []string, version string) int {
-	fs := flag.NewFlagSet("generate", flag.ContinueOnError)
+	fs := pflag.NewFlagSet("generate", pflag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 	var f GenerateFlags
 	// TODO(account-autodetect): The 1Password Go SDK has no accounts-list
@@ -40,18 +40,25 @@ func RunGenerate(args []string, version string) int {
 	fs.StringVar(&f.Account, "account", "", "1Password account UUID or shorthand name (required)")
 	fs.StringVar(&f.Vault, "vault", "", "1Password vault name or ID (required)")
 	fs.StringVar(&f.Name, "name", "", "item title for the 1Password entry (prompted if empty)")
-	fs.StringVar(&f.Output, "o", "", "write the identity file to this path instead of stdout")
-	fs.StringVar(&f.Output, "output", "", "write the identity file to this path instead of stdout")
+	fs.StringVarP(&f.Output, "output", "o", "", "write the identity file to this path instead of stdout")
+	// Long-only: pflag parses "-pq" as two short flags (-p -q), so we
+	// diverge from age-keygen's short spelling and require --pq.
 	fs.BoolVar(&f.PQ, "pq", false, "generate a post-quantum ML-KEM-768 + X25519 hybrid key")
 	fs.Usage = func() {
-		fmt.Fprint(os.Stderr, `Usage: age-plugin-1pass generate --account <acct> --vault <vault> [--name <name>] [-o FILE] [-pq]
+		fmt.Fprint(os.Stderr, `Usage: age-plugin-1pass generate --account <acct> --vault <vault> [--name <name>] [-o FILE] [--pq]
 
 Generates a new age key, stores the private key in 1Password as a
 Password-category item, and writes a self-contained identity file that
 can later be used with `+"`age -d -i <file>`"+`.
+
+Flags:
 `)
+		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, pflag.ErrHelp) {
+			return 0
+		}
 		return 2
 	}
 
