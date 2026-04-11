@@ -86,6 +86,50 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  nix:
+    name: Nix build (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-amd64
+            os: ubuntu-latest
+          - name: linux-arm64
+            os: ubuntu-24.04-arm
+          - name: darwin-amd64
+            os: macos-26-intel
+          - name: darwin-arm64
+            os: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@616559265b40713947b9c190a8ff4b507b5df49b # v31.10.4
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Set up Cachix (thomastaylor312)
+        # Watches the Nix store during the job and pushes any newly built
+        # paths to https://thomastaylor312.cachix.org. CACHIX_AUTH_TOKEN is
+        # required in repository secrets for pushes to succeed; without it
+        # the job still builds but acts as a read-only consumer.
+        uses: cachix/cachix-action@1eb2ef646ac0255473d23a5907ad7b04ce94065c # v17
+        with:
+          name: thomastaylor312
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
+      - name: Nix flake check
+        # Runs the Go tests (via buildGoModule's check phase) and evaluates
+        # every flake output for this system.
+        run: nix flake check --print-build-logs
+
+      - name: Nix build
+        run: nix build --print-build-logs .#age-plugin-1pass
+
   release:
     name: Publish release
     needs: build

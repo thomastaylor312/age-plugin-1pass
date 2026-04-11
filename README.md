@@ -17,14 +17,82 @@ fetch the key, so the same file works on any machine signed into that 1Password 
 
 ## Install
 
-<!-- TODO: publish a release -->
+### Prebuilt binaries
+
+Grab a release tarball for your platform from the [latest
+release](https://github.com/thomastaylor312/age-plugin-1pass/releases/latest). Linux builds are
+statically linked against musl, so they run on any modern distro; macOS builds are regular Mach-O
+binaries.
+
+```bash
+# Pick the right tarball for your OS/arch — linux-amd64, linux-arm64,
+# darwin-amd64, or darwin-arm64.
+PLATFORM=linux-amd64
+VERSION=$(curl -fsSL https://api.github.com/repos/thomastaylor312/age-plugin-1pass/releases/latest \
+    | awk -F'"' '/"tag_name":/ {print $4}')
+
+curl -fsSLO "https://github.com/thomastaylor312/age-plugin-1pass/releases/latest/download/age-plugin-1pass-${VERSION}-${PLATFORM}.tar.gz"
+curl -fsSLO "https://github.com/thomastaylor312/age-plugin-1pass/releases/latest/download/age-plugin-1pass-${VERSION}-${PLATFORM}.tar.gz.sha256"
+sha256sum -c "age-plugin-1pass-${VERSION}-${PLATFORM}.tar.gz.sha256"
+
+tar -xzf "age-plugin-1pass-${VERSION}-${PLATFORM}.tar.gz"
+install -m755 age-plugin-1pass ~/.local/bin/   # or anywhere on $PATH
+```
+
+Make sure the install directory is on your `PATH` — `age` discovers plugins by looking for a binary
+named `age-plugin-1pass`.
+
+### From source with `go install`
 
 ```bash
 CGO_ENABLED=1 go install github.com/thomastaylor312/age-plugin-1pass@latest
 ```
 
-Make sure `$(go env GOBIN)` (or `$GOPATH/bin`) is on your `PATH` — `age` discovers plugins by
-looking for a binary named `age-plugin-1pass`.
+Make sure `$(go env GOBIN)` (or `$GOPATH/bin`) is on your `PATH`.
+
+### Nix flake
+
+The repository ships a flake that builds a statically-linked musl binary on Linux and a regular
+Mach-O binary on macOS, both with CGO enabled for the 1Password SDK.
+
+Run it directly without installing:
+
+```bash
+nix run github:thomastaylor312/age-plugin-1pass -- generate --help
+```
+
+Install it into your user profile:
+
+```bash
+nix profile install github:thomastaylor312/age-plugin-1pass
+```
+
+Or add it as an input to your own flake:
+
+```nix
+{
+  inputs.age-plugin-1pass.url = "github:thomastaylor312/age-plugin-1pass";
+
+  outputs = { self, nixpkgs, age-plugin-1pass, ... }: {
+    # e.g. in a Home Manager or NixOS module:
+    home.packages = [ age-plugin-1pass.packages.${system}.default ];
+  };
+}
+```
+
+#### Cachix cache (optional)
+
+Release builds and CI builds are pushed to my personal Cachix cache at
+[`thomastaylor312.cachix.org`](https://thomastaylor312.cachix.org). Pointing your Nix at it lets you
+skip the local compile step (including the Go module fetch and the cgo toolchain churn).
+
+```bash
+# One-time setup — writes the substituter and trusted public key into
+# ~/.config/nix/nix.conf (or /etc/nix/nix.conf on NixOS).
+cachix use thomastaylor312
+```
+
+The cache is purely optional; everything still builds from source without it.
 
 ## Quick start
 
@@ -56,7 +124,7 @@ age-plugin-1pass generate \
 
 ### Encrypt and decrypt
 
-Encryption uses the regular `age` recipient — no plugin involvement needed:
+Encryption uses the regular `age` recipient, no plugin involvement needed:
 
 ```bash
 PUBKEY=$(grep 'public key' ~/.config/age/1pass.key | awk '{print $NF}')
