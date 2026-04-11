@@ -3,3 +3,5 @@
 *.test
 *.out
 .claude/settings.local.json
+/result
+/result-*

@@ -34,3 +34,7 @@ check: fmt lint test
 # Remove build artifacts.
 clean:
     rm -f age-plugin-1pass
+
+# Refresh flake.nix's vendorHash after a go.mod/go.sum change.
+update-vendor-hash:
+    ./scripts/update-vendor-hash.sh

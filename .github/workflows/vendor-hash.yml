@@ -1,0 +1,78 @@
+name: Update vendorHash
+
+# Keeps the flake.nix `vendorHash` in sync with go.mod / go.sum after
+# Dependabot (or a human) bumps Go module dependencies.
+#
+# Triggers:
+#   * Pushes to any `dependabot/go_modulea/**` branch — the normal flow, catches
+#     dependabot-opened PRs as soon as they land.
+#   * Pushes to any branch that actually modifies go.mod or go.sum — covers
+#     manual dependency bumps before the author opens a PR.
+#   * Manual `workflow_dispatch` so we can re-run it at will.
+#
+# Required repo configuration:
+#   * Repo Settings → Actions → General → Workflow permissions:
+#     "Read and write permissions" (so GITHUB_TOKEN can push back).
+#   * Repo Settings → Code security → Dependabot → "Allow GitHub Actions to
+#     create and approve pull requests" and "Dependabot can trigger workflows"
+#     both enabled. Without this, dependabot pushes will not fire this workflow.
+
+on:
+  push:
+    branches:
+      - 'dependabot/go_modules/**'
+    paths:
+      - 'go.mod'
+      - 'go.sum'
+      - 'flake.nix'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: vendor-hash-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  update:
+    name: Refresh flake vendorHash
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.ref }}
+          # persist-credentials is the default but be explicit here
+          persist-credentials: true
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@2126ae7fc54c9df00dd18f7f18754393182c73cd # v31.9.1
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+
+      - name: Set up Cachix (thomastaylor312)
+        # Pull-through cache — speeds up the vendor fetch and any subsequent
+        # test build. Auth is best-effort; missing tokens just mean read-only.
+        uses: cachix/cachix-action@1eb2ef646ac0255473d23a5907ad7b04ce94065c # v17
+        with:
+          name: thomastaylor312
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
+      - name: Update vendorHash
+        run: ./scripts/update-vendor-hash.sh
+
+      - name: Commit and push if changed
+        run: |
+          if git diff --quiet -- flake.nix; then
+            echo "vendorHash already up to date — nothing to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add flake.nix
+          git commit -m "deps(flake): bump vendorHash for ${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF#refs/heads/}"
