@@ -13,7 +13,7 @@ func TestBlobRoundTrip(t *testing.T) {
 		{
 			name: "x25519 default",
 			in: Blob{
-				Account: "my.1password.com",
+				Account: "My Personal",
 				Ref:     "op://Personal/age-test/password",
 				Type:    KeyTypeX25519,
 			},
@@ -21,7 +21,7 @@ func TestBlobRoundTrip(t *testing.T) {
 		{
 			name: "hybrid pq",
 			in: Blob{
-				Account: "ABCDEF1234567890",
+				Account: "Acme Corp",
 				Ref:     "op://Work/age-pq/password",
 				Type:    KeyTypeHybrid,
 			},

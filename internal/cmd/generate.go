@@ -18,8 +18,7 @@ import (
 	"github.com/thomastaylor312/age-plugin-1pass/internal/onepass"
 )
 
-// GenerateFlags captures the CLI surface of the `generate` subcommand. It's
-// exported so main can wire os.Args but internal tests can drive it directly.
+// GenerateFlags captures the CLI surface of the `generate` subcommand.
 type GenerateFlags struct {
 	Account string
 	Vault   string
@@ -33,13 +32,10 @@ func RunGenerate(args []string, version string) int {
 	fs := flag.NewFlagSet("generate", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 	var f GenerateFlags
-	// TODO(account-autodetect): The 1Password Go SDK has no accounts-list
-	// API, so --account is required today. A future revision could fall
-	// back to `op account list --format=json` (or OP_ACCOUNT) to pick a
-	// unique signed-in account automatically.
-	// Pass the shorthand/email shown in the desktop app's account picker —
-	// the 26-char account ID from `op account list` does NOT work here,
-	// despite what the SDK godoc suggests.
+	// TODO(account-autodetect): The 1Password Go SDK has no accounts-list API, so --account is
+	// required today.
+	// Pass the shorthand/email shown in the desktop app's account picker — the 26-char account ID
+	// from `op account list` does NOT work here, despite what the SDK godoc suggests.
 	fs.StringVar(&f.Account, "account", "", "1Password account name (sidebar shorthand or email; NOT the account ID) (required)")
 	fs.StringVar(&f.Vault, "vault", "", "1Password vault name or ID (required)")
 	fs.StringVar(&f.Name, "name", "", "item title for the 1Password entry (prompted if empty)")
@@ -65,9 +61,9 @@ can later be used with `+"`age -d -i <file>`"+`.
 	return 0
 }
 
-// runGenerate is the testable core of the subcommand. It's kept separate so
-// future tests can drive it with fake stdin/stdout and a mocked 1Password
-// layer (via an interface introduced when we need it).
+// runGenerate is the testable core of the subcommand. It's kept separate so future tests can drive
+// it with fake stdin/stdout and a mocked 1Password layer (via an interface introduced when we need
+// it).
 func runGenerate(f GenerateFlags, version string, stdin io.Reader, stdout, stderr io.Writer) error {
 	if f.Account == "" {
 		return errors.New("--account is required")
@@ -91,8 +87,7 @@ func runGenerate(f GenerateFlags, version string, stdin io.Reader, stdout, stder
 		return err
 	}
 
-	// Generate the key locally. We never send the secret to 1Password
-	// except via the SDK's normal Items().Create path below.
+	// Generate the key locally first
 	var (
 		secretStr    string
 		recipientStr string
@@ -168,14 +163,22 @@ func runGenerate(f GenerateFlags, version string, stdin io.Reader, stdout, stder
 	if err := os.WriteFile(f.Output, []byte(body.String()), 0o600); err != nil {
 		return fmt.Errorf("write identity file %q: %w", f.Output, err)
 	}
-	_, _ = fmt.Fprintf(stderr, "Public key: %s\n", recipientStr)
-	_, _ = fmt.Fprintf(stderr, "Identity written to %s\n", f.Output)
+	_, err = fmt.Fprintf(stderr, "Public key: %s\n", recipientStr)
+	if err != nil {
+		// Writing to stderr should never fail, but in the weird chance we get to the point, still
+		// return an error so at least the command returns non-zero
+		return err
+	}
+	_, err = fmt.Fprintf(stderr, "Identity written to %s\n", f.Output)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
-// resolveItemName returns the item title, prompting on stderr/stdin when the
-// user didn't pass --name. The prompt uses bufio.NewReader rather than
-// age/plugin's RequestValue because we're outside plugin mode here.
+// resolveItemName returns the item title, prompting on stderr/stdin when the user didn't pass
+// --name. The prompt uses bufio.NewReader rather than age/plugin's RequestValue because we're
+// outside plugin mode here.
 func resolveItemName(flagValue string, stdin io.Reader, stderr io.Writer) (string, error) {
 	if flagValue != "" {
 		return flagValue, nil

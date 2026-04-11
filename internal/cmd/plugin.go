@@ -20,12 +20,12 @@ import (
 // the binary name age expects on PATH (age-plugin-1pass).
 const PluginName = "1pass"
 
-// RunPlugin runs the age plugin protocol. It is invoked when age spawns us
-// with --age-plugin=identity-v1. The returned int is an exit code.
+// RunPlugin runs the age plugin protocol. It is invoked when age spawns us with
+// --age-plugin=identity-v1. The returned int is an exit code.
 //
-// Each identity handler allocates its own DesktopClient on first Unwrap so
-// that we only authenticate against 1Password when age actually needs a
-// file key — listing identities with `age -i` should not trigger a prompt.
+// Each identity handler allocates its own DesktopClient on first Unwrap so that we only
+// authenticate against 1Password when age actually needs a file key — listing identities with `age
+// -i` should not trigger a prompt.
 func RunPlugin(version string) int {
 	p, err := ageplugin.New(PluginName)
 	if err != nil {

@@ -8,8 +8,11 @@
 package identity
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -63,18 +66,15 @@ func (b Blob) Encode() ([]byte, error) {
 		"ref":     b.Ref,
 		"type":    string(kt),
 	}
-	keys := make([]string, 0, len(rest))
-	for k := range rest {
-		keys = append(keys, k)
-	}
+	keys := slices.Collect(maps.Keys(rest))
 	sort.Strings(keys)
 
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "v=%s\n", blobVersion)
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, "v=%s\n", blobVersion)
 	for _, k := range keys {
-		fmt.Fprintf(&sb, "%s=%s\n", k, rest[k])
+		fmt.Fprintf(&buf, "%s=%s\n", k, rest[k])
 	}
-	return []byte(sb.String()), nil
+	return buf.Bytes(), nil
 }
 
 // Decode parses the raw payload bytes produced by Encode (i.e. the data that

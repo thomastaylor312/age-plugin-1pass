@@ -29,9 +29,8 @@ type OnePassIdentity struct {
 	resolver SecretResolver
 	ctx      context.Context
 
-	once    sync.Once
+	once    func() error
 	wrapped age.Identity
-	err     error
 }
 
 // New returns an OnePassIdentity backed by the supplied resolver. The
@@ -42,7 +41,9 @@ func New(ctx context.Context, blob Blob, resolver SecretResolver) (*OnePassIdent
 	if resolver == nil {
 		return nil, errors.New("onepass identity: resolver must not be nil")
 	}
-	return &OnePassIdentity{blob: blob, resolver: resolver, ctx: ctx}, nil
+	id := &OnePassIdentity{blob: blob, resolver: resolver, ctx: ctx}
+	id.once = sync.OnceValue(id.load)
+	return id, nil
 }
 
 // Unwrap implements age.Identity. It lazily fetches the private key from
@@ -52,36 +53,33 @@ func New(ctx context.Context, blob Blob, resolver SecretResolver) (*OnePassIdent
 // useful message; a mismatched stanza, by contrast, is left to the wrapped
 // identity's own Unwrap to signal via age.ErrIncorrectIdentity.
 func (i *OnePassIdentity) Unwrap(stanzas []*age.Stanza) ([]byte, error) {
-	i.once.Do(i.load)
-	if i.err != nil {
-		return nil, i.err
+	if err := i.once(); err != nil {
+		return nil, err
 	}
 	return i.wrapped.Unwrap(stanzas)
 }
 
-func (i *OnePassIdentity) load() {
+func (i *OnePassIdentity) load() error {
 	secret, err := i.resolver.Resolve(i.ctx, i.blob.Ref)
 	if err != nil {
-		i.err = fmt.Errorf("resolve 1Password secret %q: %w", i.blob.Ref, err)
-		return
+		return fmt.Errorf("resolve 1Password secret %q: %w", i.blob.Ref, err)
 	}
 
 	switch i.blob.Type {
 	case KeyTypeX25519, "":
 		id, err := age.ParseX25519Identity(secret)
 		if err != nil {
-			i.err = fmt.Errorf("parse X25519 identity from 1Password ref %q: %w", i.blob.Ref, err)
-			return
+			return fmt.Errorf("parse X25519 identity from 1Password ref %q: %w", i.blob.Ref, err)
 		}
 		i.wrapped = id
 	case KeyTypeHybrid:
 		id, err := age.ParseHybridIdentity(secret)
 		if err != nil {
-			i.err = fmt.Errorf("parse hybrid identity from 1Password ref %q: %w", i.blob.Ref, err)
-			return
+			return fmt.Errorf("parse hybrid identity from 1Password ref %q: %w", i.blob.Ref, err)
 		}
 		i.wrapped = id
 	default:
-		i.err = fmt.Errorf("onepass identity: unsupported key type %q", i.blob.Type)
+		return fmt.Errorf("onepass identity: unsupported key type %q", i.blob.Type)
 	}
+	return nil
 }
