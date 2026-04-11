@@ -36,14 +36,14 @@ func RunGenerate(args []string, version string) int {
 	// required today.
 	// Pass the shorthand/email shown in the desktop app's account picker — the 26-char account ID
 	// from `op account list` does NOT work here, despite what the SDK godoc suggests.
-	fs.StringVar(&f.Account, "account", "", "1Password account name (sidebar shorthand or email; NOT the account ID) (required)")
-	fs.StringVar(&f.Vault, "vault", "", "1Password vault name or ID (required)")
+	fs.StringVar(&f.Account, "account", "", "1Password account name (sidebar shorthand/email; NOT the account ID) (prompted if empty)")
+	fs.StringVar(&f.Vault, "vault", "", "1Password vault name or ID (prompted if empty)")
 	fs.StringVar(&f.Name, "name", "", "item title for the 1Password entry (prompted if empty)")
 	fs.StringVar(&f.Output, "o", "", "write the identity file to this path instead of stdout")
 	fs.StringVar(&f.Output, "output", "", "write the identity file to this path instead of stdout")
 	fs.BoolVar(&f.PQ, "pq", false, "generate a post-quantum ML-KEM-768 + X25519 hybrid key")
 	fs.Usage = func() {
-		fmt.Fprint(os.Stderr, `Usage: age-plugin-1pass generate --account <acct> --vault <vault> [--name <name>] [-o FILE] [-pq]
+		fmt.Fprint(os.Stderr, `Usage: age-plugin-1pass generate [--account <acct>] [--vault <vault>] [--name <name>] [-o FILE] [-pq]
 
 Generates a new age key, stores the private key in 1Password as a
 Password-category item, and writes a self-contained identity file that
@@ -65,13 +65,6 @@ can later be used with `+"`age -d -i <file>`"+`.
 // it with fake stdin/stdout and a mocked 1Password layer (via an interface introduced when we need
 // it).
 func runGenerate(f GenerateFlags, version string, stdin io.Reader, stdout, stderr io.Writer) error {
-	if f.Account == "" {
-		return errors.New("--account is required")
-	}
-	if f.Vault == "" {
-		return errors.New("--vault is required")
-	}
-
 	// Refuse to overwrite an existing output file. age-keygen does the
 	// same — losing a private-key file to a stray redirect is catastrophic.
 	if f.Output != "" {
@@ -82,7 +75,19 @@ func runGenerate(f GenerateFlags, version string, stdin io.Reader, stdout, stder
 		}
 	}
 
-	name, err := resolveItemName(f.Name, stdin, stderr)
+	// Share a single bufio.Reader across prompts — constructing a new one
+	// per call can drop input that the previous reader buffered past the
+	// newline.
+	reader := bufio.NewReader(stdin)
+	account, err := promptIfEmpty(f.Account, "1Password account (shorthand or email from sidebar)", "account is required", reader, stderr)
+	if err != nil {
+		return err
+	}
+	vault, err := promptIfEmpty(f.Vault, "1Password vault name or ID", "vault is required", reader, stderr)
+	if err != nil {
+		return err
+	}
+	name, err := promptIfEmpty(f.Name, "1Password item name", "item name is required", reader, stderr)
 	if err != nil {
 		return err
 	}
@@ -112,12 +117,12 @@ func runGenerate(f GenerateFlags, version string, stdin io.Reader, stdout, stder
 	}
 
 	ctx := context.Background()
-	client, err := onepass.NewDesktop(ctx, f.Account, version)
+	client, err := onepass.NewDesktop(ctx, account, version)
 	if err != nil {
 		return err
 	}
 
-	vaultTitle, vaultID, err := client.ResolveVault(ctx, f.Vault)
+	vaultTitle, vaultID, err := client.ResolveVault(ctx, vault)
 	if err != nil {
 		return err
 	}
@@ -128,7 +133,7 @@ func runGenerate(f GenerateFlags, version string, stdin io.Reader, stdout, stder
 	}
 
 	blob := identity.Blob{
-		Account: f.Account,
+		Account: account,
 		Ref:     fmt.Sprintf("op://%s/%s/password", vaultTitle, itemTitle),
 		Type:    keyType,
 	}
@@ -176,22 +181,21 @@ func runGenerate(f GenerateFlags, version string, stdin io.Reader, stdout, stder
 	return nil
 }
 
-// resolveItemName returns the item title, prompting on stderr/stdin when the user didn't pass
-// --name. The prompt uses bufio.NewReader rather than age/plugin's RequestValue because we're
-// outside plugin mode here.
-func resolveItemName(flagValue string, stdin io.Reader, stderr io.Writer) (string, error) {
+// promptIfEmpty returns flagValue when set, otherwise prompts on stderr and reads a line from
+// reader. Uses bufio directly (not age/plugin's RequestValue) because we're outside plugin mode.
+// The caller supplies the reader so multiple prompts can share one bufio buffer.
+func promptIfEmpty(flagValue, prompt, missingErr string, reader *bufio.Reader, stderr io.Writer) (string, error) {
 	if flagValue != "" {
 		return flagValue, nil
 	}
-	_, _ = fmt.Fprint(stderr, "1Password item name: ")
-	reader := bufio.NewReader(stdin)
+	_, _ = fmt.Fprintf(stderr, "%s: ", prompt)
 	line, err := reader.ReadString('\n')
 	if err != nil && !errors.Is(err, io.EOF) {
-		return "", fmt.Errorf("read item name: %w", err)
+		return "", fmt.Errorf("read %s: %w", prompt, err)
 	}
-	name := strings.TrimSpace(line)
-	if name == "" {
-		return "", errors.New("item name is required")
+	value := strings.TrimSpace(line)
+	if value == "" {
+		return "", errors.New(missingErr)
 	}
-	return name, nil
+	return value, nil
 }

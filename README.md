@@ -1,19 +1,17 @@
 # 1Password Age Plugin
 
-An [age](https://age-encryption.org) identity plugin that stores private keys
-in [1Password](https://1password.com) and resolves them at decrypt time via
-the 1Password desktop-app integration. Supports both standard X25519 and
-post-quantum ML-KEM-768 + X25519 hybrid keys.
+An [age](https://age-encryption.org) identity plugin that stores private keys in
+[1Password](https://1password.com) and resolves them at decrypt time via the 1Password desktop-app
+integration. Supports both standard X25519 and post-quantum ML-KEM-768 + X25519 hybrid keys.
 
-The identity file is self-contained: it embeds the 1Password account and
-secret reference needed to fetch the key, so the same file works on any
-machine signed into that 1Password account.
+The identity file is self-contained: it embeds the 1Password account and secret reference needed to
+fetch the key, so the same file works on any machine signed into that 1Password account.
 
 ## Requirements
 
 - 1Password desktop app, running and signed into the target account.
-- **Integrate with other apps** enabled under *Settings → Developer* in the
-  1Password desktop app (required for the Go SDK's desktop-app auth).
+- **Integrate with other apps** enabled under *Settings → Developer* in the 1Password desktop app
+  (required for the Go SDK's desktop-app auth).
 - [`age`](https://github.com/FiloSottile/age) installed on `PATH`.
 - **CGO enabled** at build time — the 1Password Go SDK links native code.
 
@@ -25,8 +23,8 @@ machine signed into that 1Password account.
 CGO_ENABLED=1 go install github.com/thomastaylor312/age-plugin-1pass@latest
 ```
 
-Make sure `$(go env GOBIN)` (or `$GOPATH/bin`) is on your `PATH` — `age`
-discovers plugins by looking for a binary named `age-plugin-1pass`.
+Make sure `$(go env GOBIN)` (or `$GOPATH/bin`) is on your `PATH` — `age` discovers plugins by
+looking for a binary named `age-plugin-1pass`.
 
 ## Quick start
 
@@ -40,11 +38,10 @@ age-plugin-1pass generate \
     -o ~/.config/age/1pass.key
 ```
 
-This creates a new X25519 keypair, stores the private key in the `password`
-field of a new Password-category item called `my-age-key` in your `Personal`
-vault, and writes an identity file to `~/.config/age/1pass.key`. The public
-key is printed to stderr so you can copy it into `~/.config/age/recipients`
-or share it.
+This creates a new X25519 keypair, stores the private key in the `password` field of a new
+Password-category item called `my-age-key` in your `Personal` vault, and writes an identity file to
+`~/.config/age/1pass.key`. The public key is printed to stderr so you can copy it into
+`~/.config/age/recipients` or share it.
 
 ### Generate a post-quantum hybrid identity
 
@@ -66,9 +63,8 @@ PUBKEY=$(grep 'public key' ~/.config/age/1pass.key | awk '{print $NF}')
 echo 'hello' | age -r "$PUBKEY" -o hello.age
 ```
 
-Decryption uses the identity file; `age` spawns `age-plugin-1pass`, which
-fetches the secret from 1Password (you may see a desktop-app approval prompt
-on first use):
+Decryption uses the identity file; `age` spawns `age-plugin-1pass`, which fetches the secret from
+1Password (you may see a desktop-app approval prompt on first use):
 
 ```bash
 age -d -i ~/.config/age/1pass.key hello.age
@@ -79,38 +75,31 @@ age -d -i ~/.config/age/1pass.key hello.age
 
 `age-plugin-1pass generate`:
 
-| Flag | Required | Description |
-|------|----------|-------------|
-| `--account <name>` | yes | 1Password account **shorthand name** as shown in the desktop app's top-left account picker (e.g. `my.1password.com` or your sign-in email). See "Picking the right `--account` value" below. |
-| `--vault <name-or-id>` | yes | Destination vault; title or UUID. |
-| `--name <item-name>` | no | Item title. Prompted interactively if omitted. |
-| `-o, --output <path>` | no | Write to a file (refuses to overwrite) instead of stdout. |
-| `-pq` | no | Generate a post-quantum ML-KEM-768 + X25519 hybrid key. |
+| Flag                   | Required | Description                                                                                                                                                                                                                     |
+| ---------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--account <name>`     | no       | 1Password account **shorthand name** as shown in the desktop app's top-left account picker (e.g. `my.1password.com` or your sign-in email). Prompted interactively if omitted. See "Picking the right `--account` value" below. |
+| `--vault <name-or-id>` | no       | Destination vault; title or UUID. Prompted interactively if omitted.                                                                                                                                                            |
+| `--name <item-name>`   | no       | Item title. Prompted interactively if omitted.                                                                                                                                                                                  |
+| `-o, --output <path>`  | no       | Write to a file (refuses to overwrite) instead of stdout.                                                                                                                                                                       |
+| `-pq`                  | no       | Generate a post-quantum ML-KEM-768 + X25519 hybrid key.                                                                                                                                                                         |
 
 ### Picking the right `--account` value
 
-Pass the **account name** as it appears in the 1Password desktop app's
-top-left account picker — typically your sign-in email or the account
-shorthand like `my.1password.com`. This is what the upstream
-`onepassword-sdk-go` example uses.
+Pass the **account name** as it appears in the 1Password desktop app's top-left account picker —
+typically your sign-in email or the account shorthand like `my.1password.com`. This is what the
+upstream `onepassword-sdk-go` example uses.
 
-> **Heads up:** the 1Password Go SDK godoc says
-> *"Set to your 1Password account name as shown at the top left sidebar of
-> the app, **or your account UUID**"*, but in practice passing the
-> 26-character base32 account ID that `op account list` reports under the
-> `ID` column fails with `Account not found`. Use the shorthand/email,
-> not that ID.
+> **Heads up:** the 1Password Go SDK godoc says *"Set to your 1Password account name as shown at the
+> top left sidebar of the app, **or your account UUID**"*, but in practice passing the 26-character
+> base32 account ID that `op account list` reports under the `ID` column fails with `Account not
+> found`. Use the shorthand/email, not that ID.
 
-If you have the [`op` CLI](https://developer.1password.com/docs/cli/)
-installed, `op account list` shows usable values under the `URL`,
-`SHORTHAND`, and `EMAIL` columns — any of those should work.
+### Why does `generate` always need an account?
 
-### Why is `--account` required?
-
-The 1Password Go SDK's desktop-app integration needs a specific account to
-bind the client to, and the SDK exposes no API to list or default accounts.
-A future release may shell out to `op account list` to auto-select when a
-single account is signed in.
+The 1Password Go SDK's desktop-app integration needs a specific account to bind the client to, and
+the SDK exposes no API to list or default accounts. `generate` prompts for one when `--account`
+isn't passed; a future release may shell out to `op account list` to auto-select when a single
+account is signed in.
 
 ## Identity file format
 
@@ -133,36 +122,34 @@ ref=op://Personal/my-age-key/password
 type=x25519
 ```
 
-You can decode it with any bech32 tool for debugging — it contains only the
-account identifier and the 1Password secret reference, never the key itself.
+You can decode it with any bech32 tool for debugging — it contains only the account identifier and
+the 1Password secret reference, never the key itself.
 
 ## Troubleshooting
 
-**`desktop app connection channel is closed`** — the 1Password desktop app
-isn't running, isn't signed into the requested account, or *Integrate with
-other apps* is disabled. Open *Settings → Developer* and toggle it on.
+**`desktop app connection channel is closed`** — the 1Password desktop app isn't running, isn't
+signed into the requested account, or *Integrate with other apps* is disabled. Open *Settings →
+Developer* and toggle it on.
 
-**`Account not found`** — `--account` was passed an account ID (the 26-char
-base32 string from `op account list`'s `ID` column) instead of the account
-shorthand/email shown in the desktop app sidebar. See *Picking the right
-`--account` value* above.
+**`Account not found`** — `--account` was passed an account ID (the 26-char base32 string from `op
+account list`'s `ID` column) instead of the account shorthand/email shown in the desktop app
+sidebar. See *Picking the right `--account` value* above.
 
-**`vault "X" not found in account "Y"`** — the desktop app is signed into a
-different account than `--account`, or the vault title is misspelled. Use
-`op vault list` (with the `op` CLI) to confirm titles and IDs.
+**`vault "X" not found in account "Y"`** — the desktop app is signed into a different account than
+`--account`, or the vault title is misspelled. Use `op vault list` (with the `op` CLI) to confirm
+titles and IDs.
 
-**Decryption hangs with no prompt** — the desktop app's approval dialog may
-be behind another window, or the app is locked. Unlock 1Password and retry.
+**Decryption hangs with no prompt** — the desktop app's approval dialog may be behind another
+window, or the app is locked. Unlock 1Password and retry.
 
-**`parse X25519 identity from 1Password ref ...`** — the item exists but the
-`password` field doesn't contain a valid `AGE-SECRET-KEY-...` string. This
-usually means the item was edited or created by hand. Regenerate with
-`age-plugin-1pass generate`.
+**`parse X25519 identity from 1Password ref ...`** — the item exists but the `password` field
+doesn't contain a valid `AGE-SECRET-KEY-...` string. This usually means the item was edited or
+created by hand. Regenerate with `age-plugin-1pass generate`.
 
 ## Development
 
-A `Justfile` wraps the common tasks. A `flake.nix` provides Go 1.26, `just`,
-and `golangci-lint` in a reproducible devshell:
+A `Justfile` wraps the common tasks. A `flake.nix` provides Go 1.26, `just`, and `golangci-lint` in
+a reproducible devshell:
 
 ```bash
 nix develop         # enter the devshell
@@ -171,7 +158,3 @@ just build          # build ./age-plugin-1pass
 ```
 
 All commits on `main` are expected to pass `just check`.
-
-## License
-
-TBD.
