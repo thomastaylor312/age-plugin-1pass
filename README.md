@@ -26,7 +26,7 @@ binaries.
 
 ```bash
 # Pick the right tarball for your OS/arch — linux-amd64, linux-arm64,
-# darwin-amd64, or darwin-arm64.
+# or darwin-arm64.
 PLATFORM=linux-amd64
 VERSION=$(curl -fsSL https://api.github.com/repos/thomastaylor312/age-plugin-1pass/releases/latest \
     | awk -F'"' '/"tag_name":/ {print $4}')
